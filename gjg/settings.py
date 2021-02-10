@@ -15,8 +15,7 @@ from pathlib import Path
 # Activate Django-Heroku.
 django_heroku.settings(locals())
 
-# Build paths inside the project like this: BASE_DIpipR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Static files (CSS, JavaScript, Images)
