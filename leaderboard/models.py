@@ -15,4 +15,4 @@ class User(models.Model):
     rank = models.IntegerField()
 
     def __str__(self):
-        return self.rank, self.user_id, self.points, self.display_name
+        return self.display_name
