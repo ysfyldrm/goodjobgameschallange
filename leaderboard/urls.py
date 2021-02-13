@@ -1,6 +1,5 @@
 from django.urls import path
-from .leaderboard import userDetailsAPIView, userCreate,  leaderboard, specificLeaderboard, submitScore
-
+from .leaderboard import userDetailsAPIView, userCreate, leaderboard, specificLeaderboard, submitScore
 
 urlpatterns = [
     path('leaderboard/', leaderboard.as_view()),

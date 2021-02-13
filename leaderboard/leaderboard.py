@@ -14,14 +14,14 @@ redis_instance = redis.Redis(host='localhost',
 def set_rank(user_id, point):
     redis_instance.zadd('leaderboard', {str(user_id): int(point)})
     rank = redis_instance.zrevrank('leaderboard', str(user_id))
-    User.objects.filter(user_id=user_id).update(rank=rank + 1)
+    User.objects.filter(user_id=user_id).update(rank=rank+1)
 
 
 def change_rank(user_id, point):
     redis_instance.zrem('leaderboard', str(user_id))
     redis_instance.zadd('leaderboard', {str(user_id): int(point)})
     rank = redis_instance.zrevrank('leaderboard', str(user_id))
-    User.objects.filter(user_id=user_id).update(rank=rank + 1)
+    User.objects.filter(user_id=user_id).update(rank=rank+1)
 
 
 def check_score(user_id):
@@ -33,7 +33,7 @@ def adjust_ranks():
     user_id = User.objects.values_list('user_id', flat=True)
     for user_id, point in zip(user_id, point):
         rank = redis_instance.zrevrank('leaderboard', str(user_id))
-        User.objects.filter(user_id=user_id).update(rank=rank + 1)
+        User.objects.filter(user_id=user_id).update(rank=rank+1)
 
 
 class leaderboard(APIView):
