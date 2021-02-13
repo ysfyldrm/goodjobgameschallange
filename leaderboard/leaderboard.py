@@ -14,14 +14,14 @@ redis_instance = redis.Redis(host='localhost',
 def set_rank(user_id, point):
     redis_instance.zadd('leaderboard', {str(user_id): int(point)})
     rank = redis_instance.zrevrank('leaderboard', str(user_id))
-    User.objects.filter(user_id=user_id).update(rank=rank+1)
+    User.objects.filter(user_id=user_id).update(rank=float(rank + 1))
 
 
 def change_rank(user_id, point):
     redis_instance.zrem('leaderboard', str(user_id))
     redis_instance.zadd('leaderboard', {str(user_id): int(point)})
     rank = redis_instance.zrevrank('leaderboard', str(user_id))
-    User.objects.filter(user_id=user_id).update(rank=rank+1)
+    User.objects.filter(user_id=user_id).update(rank=float(rank + 1))
 
 
 def check_score(user_id):
@@ -33,7 +33,8 @@ def adjust_ranks():
     user_id = User.objects.values_list('user_id', flat=True)
     for user_id, point in zip(user_id, point):
         rank = redis_instance.zrevrank('leaderboard', str(user_id))
-        User.objects.filter(user_id=user_id).update(rank=rank+1)
+        User.objects.filter(user_id=user_id).update(rank=float(rank + 1))
+
 
 
 class leaderboard(APIView):
@@ -102,12 +103,10 @@ class submitScore(APIView):
 
     def put(self, request, user_id):
         point = json.loads(json.dumps(request.data))['point']
-        User.objects.filter(user_id=user_id).update(point=point)
-        try:
-            User.objects.filter(user_id=user_id).get()
-            if check_score(user_id) < point:
-                adjust_ranks()
+        if User.objects.filter(user_id=user_id).values_list('user_id', flat=True):
+            if check_score(user_id) < float(point):
+                User.objects.filter(user_id=user_id).update(point=point)
                 change_rank(user_id, point)
-        except User.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-        return Response(status=status.HTTP_200_OK)
+                adjust_ranks()
+                return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
