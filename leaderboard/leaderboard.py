@@ -74,20 +74,34 @@ class userDetailsAPIView(APIView):
 
 class userCreate(APIView):
     def post(self, request):
-        serializer = UserSerializer(data=request.data, many=True)
-        if serializer.is_valid():
-            for serializer in serializer.validated_data:
-                display_name = serializer['display_name']
+        if isinstance(request.data, list):
+            serializer = UserSerializer(data=request.data, many=True)
+            if serializer.is_valid():
+                for serializer in serializer.validated_data:
+                    display_name = serializer['display_name']
+                    if not User.objects.filter(display_name__iexact=display_name).values_list('display_name', flat=True):
+                        new_serializer = UserSerializer(data=serializer)
+                        if new_serializer.is_valid():
+                            new_serializer.save()
+                            user_id = json.loads(json.dumps(new_serializer.data))['user_id']
+                            point = float(json.loads(json.dumps(new_serializer.data))['point'])
+                            set_rank(user_id, point)
+                            adjust_ranks(0, point)
+                return Response(status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif isinstance(request.data, dict):
+            new_serializer = UserSerializer(data=request.data)
+            if new_serializer.is_valid():
+                display_name = json.loads(json.dumps(new_serializer.validated_data))['display_name']
                 if not User.objects.filter(display_name__iexact=display_name).values_list('display_name', flat=True):
-                    new_serializer = UserSerializer(data=serializer)
-                    if new_serializer.is_valid():
-                        new_serializer.save()
-                        user_id = json.loads(json.dumps(new_serializer.data))['user_id']
-                        point = float(json.loads(json.dumps(new_serializer.data))['point'])
-                        set_rank(user_id, point)
-                        adjust_ranks(0, point)
-            return Response(status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    new_serializer.save()
+                    user_id = json.loads(json.dumps(new_serializer.data))['user_id']
+                    point = float(json.loads(json.dumps(new_serializer.data))['point'])
+                    set_rank(user_id, point)
+                    adjust_ranks(0, point)
+                return Response(status=status.HTTP_201_CREATED)
+            return Response(new_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class submitScore(APIView):
