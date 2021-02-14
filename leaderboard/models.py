@@ -14,10 +14,10 @@ class User(models.Model):
     user_id = models.UUIDField(primary_key=True,
                                default=uuid.uuid4,
                                editable=False)
-    point = models.FloatField(default=0, blank=True, editable=False)
+    point = models.FloatField(default=0, blank=True)
     display_name = models.CharField(max_length=32)
     country = models.CharField(max_length=2)
-    rank = models.IntegerField(editable=False)
+    rank = models.IntegerField(editable=False, blank=True, null=True)
 
     def __str__(self):
         return str(self.display_name)

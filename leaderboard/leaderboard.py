@@ -28,18 +28,15 @@ def check_score(user_id):
     return redis_instance.zscore('leaderboard', str(user_id))
 
 
-def adjust_ranks():
-    point = User.objects.values_list('point', flat=True)
-    user_id = User.objects.values_list('user_id', flat=True)
-    for user_id, point in zip(user_id, point):
+def adjust_ranks(old_point, new_point):
+    user_id = User.objects.filter(point__lte=new_point, point__gte=old_point).values_list('user_id', flat=True)
+    for user_id in user_id:
         rank = redis_instance.zrevrank('leaderboard', str(user_id))
         User.objects.filter(user_id=user_id).update(rank=float(rank + 1))
 
 
-
 class leaderboard(APIView):
     def get(self, request):
-        adjust_ranks()
         users = User.objects.all()
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -49,14 +46,13 @@ class specificLeaderboard(APIView):
 
     def get_object(self, country):
         try:
-            return User.objects.get(country=country)
+            return User.objects.get(country__iexact=country)
 
         except User.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def get(self, request, country):
-        adjust_ranks()
-        user = User.objects.filter(country=country)
+        user = User.objects.filter(country__iexact=country)
         serializer = UserSerializer(user, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -71,7 +67,6 @@ class userDetailsAPIView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def get(self, request, user_id):
-        adjust_ranks()
         user = User.objects.get(user_id=user_id)
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -79,16 +74,19 @@ class userDetailsAPIView(APIView):
 
 class userCreate(APIView):
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = UserSerializer(data=request.data, many=True)
         if serializer.is_valid():
-            display_name = json.loads(json.dumps(serializer.validated_data))['display_name']
-            if not User.objects.filter(display_name=display_name).values_list('display_name', flat=True):
-                serializer.save()
-                user_id = json.loads(json.dumps(serializer.data))['user_id']
-                point = json.loads(json.dumps(serializer.data))['point']
-                set_rank(user_id, point)
-                adjust_ranks()
-                return Response(status=status.HTTP_201_CREATED)
+            for serializer in serializer.validated_data:
+                display_name = serializer['display_name']
+                if not User.objects.filter(display_name__iexact=display_name).values_list('display_name', flat=True):
+                    new_serializer = UserSerializer(data=serializer)
+                    if new_serializer.is_valid():
+                        new_serializer.save()
+                        user_id = json.loads(json.dumps(new_serializer.data))['user_id']
+                        point = float(json.loads(json.dumps(new_serializer.data))['point'])
+                        set_rank(user_id, point)
+                        adjust_ranks(0, point)
+            return Response(status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -102,11 +100,12 @@ class submitScore(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, user_id):
-        point = json.loads(json.dumps(request.data))['point']
+        new_point = json.loads(json.dumps(request.data))['point']
         if User.objects.filter(user_id=user_id).values_list('user_id', flat=True):
-            if check_score(user_id) < float(point):
-                User.objects.filter(user_id=user_id).update(point=point)
-                change_rank(user_id, point)
-                adjust_ranks()
+            old_point = check_score(user_id)
+            if old_point < float(new_point):
+                User.objects.filter(user_id=user_id).update(point=new_point)
+                change_rank(user_id, new_point)
+                adjust_ranks(old_point, new_point)
                 return Response(status=status.HTTP_200_OK)
         return Response(status=status.HTTP_400_BAD_REQUEST)
